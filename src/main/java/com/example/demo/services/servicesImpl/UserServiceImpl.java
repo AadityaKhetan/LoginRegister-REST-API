@@ -1,8 +1,10 @@
 package com.example.demo.services.servicesImpl;
 
 import com.example.demo.domain.DTO.UserDTO;
+import com.example.demo.domain.JWTToken;
 import com.example.demo.domain.User;
 import com.example.demo.repositories.UserRepository;
+import com.example.demo.services.JWTUtils;
 import com.example.demo.services.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,14 +17,20 @@ import java.util.Optional;
 @Service
 public class UserServiceImpl implements UserService {
 
+
     private final UserRepository userRepository;
 
     //for encoding password to prevent storing plain text
     private final PasswordEncoder passwordEncoder;
 
+    private JWTUtils jwtUtils;
+
+
     public UserServiceImpl(UserRepository userRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
+        this.jwtUtils = new JWTUtils();
+
     }
 
     /*
@@ -32,6 +40,7 @@ public class UserServiceImpl implements UserService {
     public boolean checkLoginPassword(String rawPassword,String encodedPassword){
         return this.passwordEncoder.matches(rawPassword,encodedPassword);
     }
+
 
     @Override
     public ResponseEntity save(User user) {
@@ -50,8 +59,10 @@ public class UserServiceImpl implements UserService {
 
         if(doesUserExist.isPresent()){
             //email id exists in the system, so verifying password
-            if(checkLoginPassword(userDTO.getPassword(), doesUserExist.get().getPassword()))
-                return ResponseEntity.ok().body("Login successful");
+            if(checkLoginPassword(userDTO.getPassword(), doesUserExist.get().getPassword())) {
+                String jwt = jwtUtils.generateToken(doesUserExist.get());
+                return new ResponseEntity<>(new JWTToken(jwt),HttpStatus.OK);
+            }
             else
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Provided password does not match");
         }else{
